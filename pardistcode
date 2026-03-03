@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o nounset
+
+# pardistcode: distributedly transcode a video file
+
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2026 multiplealiases
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# “Software”), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+# NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+# THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+missing_progs=""
+set +o errexit
+for prog in parallel ffmpeg sed grep
+do
+    if ! type $prog > /dev/null 2>&1
+    then
+        missing_progs="$missing_progs $prog"
+    fi
+done
+set -o errexit
+
+if [ -n "$missing_progs" ]
+then
+    1>&2 cat << MSG
+The following programs are missing:$missing_progs
+MSG
+fi
+
+die() {
+    # shellcheck disable=SC2059
+    printf "$@"
+    exit 1
+}
+
+help_text() {
+    cat << EOF
+pardistcode: distributedly transcode a video file
+
+Output is always in MKV.
+
+Usage: parallel-transcode --input input.mkv \\
+       --sshlogin ':,2/user1@host1,1/user2@host2,1/user3@host3' \\
+       --ffmpeg-options '-c:v libsvtav1 -crf 38 -pix_fmt yuv420p10le -preset 4 -vf scale=-4:1080' \\
+       --audio-options '-c:a libopus -b:a 96k'
+
+Options (defaults in [])
+-h, --help            this help
+-i, --input           input video file (required)
+-o, --output          output video file without file extension [based on input]
+-S, --sshlogin        --sshlogin arg to pass to GNU Parallel (required)
+-f, --ffmpeg-options  transcode video with these options (required)
+-a, --audio-options   transcode audio with these options [-c:a copy]
+EOF
+}
+
+while [ "$#" -gt 0 ]
+do
+    case "$1" in
+    -h | --help)
+        help_text
+        exit 1
+        ;;
+    -i | --input)
+        infile="$2"
+        shift 2
+        ;;
+    -f | --ffmpeg-options)
+        options="$2"
+        shift 2
+        ;;
+    -S | --sshlogin)
+        sshlogin="$2"
+        shift 2
+        ;;
+    -a | --audio-options)
+        audio_options="$2"
+        shift 2
+        ;;
+    -o | --output)
+        outname="$2"
+        shift 2
+        ;;
+    *)
+        die "Arg(s) not recognized:\n%s\n" "$*"
+        exit 1
+        ;;
+    esac
+done
+
+
+cleanup_dir="$(mktemp -d)"
+cleanup() {
+    rm -rf "$cleanup_dir"
+}
+# shellcheck disable=SC2120
+autocleaning_mktemp() {
+    mktemp "$@" -p "$cleanup_dir"
+}
+trap 'cleanup' INT HUP TERM EXIT
+
+origlist="$(autocleaning_mktemp)"
+tclist="$(autocleaning_mktemp)"
+
+# cheap trick to test for existence of mandatory vars
+echo "$infile" > /dev/null
+echo "$sshlogin" > /dev/null
+echo "$options" > /dev/null
+
+default_audio_options="-c:a copy"
+audio_options="${audio_options:-$default_audio_options}"
+
+infile="$(realpath "$infile")"
+inbase="$(basename "$infile")"
+inbasenoext="${inbase%.*}"
+currentdir="$(pwd)"
+default_outname="$inbasenoext"-pdc
+outname="${outname:-$default_outname}"
+
+pushd "$cleanup_dir"
+
+# dropping the audio track here because splitting it up causes
+# distortion/weirdness on track boundaries
+ffmpeg -i "$infile" -map 0:v -f segment -segment_list_type ffconcat -segment_list "$origlist" -segment_time 30 -c:v copy orig-%d.mkv
+
+finalcount=$(grep -Eo '[0-9]+' "$origlist" | tail -n1)
+
+sed 's/orig/tc/g' "$origlist" > "$tclist"
+
+parallel -j1 --sshlogin "$sshlogin" --transferfile orig-{}.mkv --cleanup --return tc-{}.mkv \
+ffmpeg -i orig-{}.mkv $options tc-{}.mkv -y \
+:::: <(seq 0 "$finalcount")
+
+# transcode the audio track here instead
+ffmpeg -f concat -i "$tclist" -i "$infile" -map 0:v -map 1:a? -map 1:s? -map 1:d? $audio_options -c:v copy -c:s copy -c:d copy -y "$currentdir"/"$outname".mkv
