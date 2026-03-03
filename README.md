@@ -69,7 +69,7 @@ Options (defaults in [])
 
 * You probably want to transcode multiple files.
   Try something like
-  `parallel -j1 -0 pardistcode (...options...) {} :::: <(find . -type f -name '*.mkv' -print0)`
+  `parallel -q -j1 -0 pardistcode (...options...) {} :::: <(find . -type f -name '*.mkv' -print0)`
 
 * I have `parallel` in this script configured to buffer output on job completion;
   you will not get visual feedback until the first segment finishes encoding.
