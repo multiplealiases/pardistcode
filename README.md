@@ -74,3 +74,8 @@ Options (defaults in [])
 * I have `parallel` in this script configured to buffer output on job completion;
   you will not get visual feedback until the first segment finishes encoding.
   (consider monitoring your remote machines using `top`/`htop`/`btop`/`glances`/whatever)
+
+* Output is always in MKV. If you need it in MP4/MOV, do
+  `ffmpeg -i in.mkv -map 0 -c:a copy -c:v copy -c:s copy -c:d copy -movflags faststart out.mp4`
+  afterwards.
+
