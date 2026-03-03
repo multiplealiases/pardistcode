@@ -57,10 +57,11 @@ pardistcode: distributedly transcode a video file
 
 Output is always in MKV.
 
-Usage: parallel-transcode --input input.mkv \\
-       --sshlogin ':,2/user1@host1,1/user2@host2,1/user3@host3' \\
-       --ffmpeg-options '-c:v libsvtav1 -crf 38 -pix_fmt yuv420p10le -preset 4 -vf scale=-4:1080' \\
-       --audio-options '-c:a libopus -b:a 96k'
+Usage
+pardistcode --input input.mkv \\
+    --sshlogin ':,2/user1@host1,1/user2@host2,1/user3@host3' \\
+    --ffmpeg-options '-c:v libsvtav1 -crf 38 -pix_fmt yuv420p10le -preset 4 -vf scale=-4:1080' \\
+    --audio-options '-c:a libopus -b:a 96k'
 
 Options (defaults in [])
 -h, --help            this help
