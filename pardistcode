@@ -152,7 +152,7 @@ finalcount=$(grep -Eo '[0-9]+' "$origlist" | tail -n1)
 
 sed 's/orig/tc/g' "$origlist" > "$tclist"
 
-parallel -j1 --sshlogin "$sshlogin" --transferfile orig-{}.mkv --cleanup --return tc-{}.mkv \
+parallel --sshlogin "$sshlogin" --transferfile orig-{}.mkv --cleanup --return tc-{}.mkv \
 ffmpeg -i orig-{}.mkv $options tc-{}.mkv -y \
 :::: <(seq 0 "$finalcount")
 
