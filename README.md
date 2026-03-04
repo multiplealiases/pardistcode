@@ -45,21 +45,32 @@ Options (defaults in [])
 
 ## Considerations
 
-* x264 (`-c:v libx264`), x265 (`-c:v libx265`) and SVT-AV1 (`-c:v libsvtav1`)
-  are very good at using every available core;
-  start every `--sshlogin` entry with `1/` to only use 1 job on each machine.
-  Whatever you do, always specify the job count,
-  or it will end up running the remote computers'
-  core count of jobs at once,
-  which will probably cause an out-of-memory condition,
-  in addition to the extreme lag.
+### Network latency: segment length and job count
 
-* ...but your network might not be very good,
-  which can cause noticable 'dead air' between jobs
-  for faster encodes.
-  To mitigate this, increase the number of jobs to 2 (`2/`)
-  to make sure your remote computers always have something to do,
-  or pass a higher `--segment-length` than 30 seconds.
+**Always** pass the number of jobs to run in `--sshlogin`,
+or you will find your machines OOMing and lagging heavily
+because they're running `$(nproc)` jobs.
+
+It is very likely that x264 (`-c:v libx264`),
+x265 (`-c:v libx265`) and SVT-AV1 (`-c:v libsvtav1`)
+can parallelize to every available core on your machines,
+so assuming a fast network, you could probably get away with specifying `1/`
+(run only 1 job at a time) for every remote machine.
+
+If your network isn't fast, you might notice 'dead air' between jobs.
+There are 2 ways to mitigate this:
+
+* Do `2/` (2 jobs) instead. This cuts out most of the dead air,
+  but obviously running 2 FFmpegs means you're using twice the RAM,
+  and it might cause intense lag
+  if your machines are being used interactively.
+
+* Use longer values of `--segment-length` to make
+  the dead air proportionally smaller.
+  Increasing it too far might decrease the degree of parallelism you can attain
+  and delay transcodes if you have a mix of fast and slow machines.
+
+### Unsorted
 
 * You should probably read `man parallel` for further info,
   (try searching for `jobs to remote computers`
