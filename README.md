@@ -15,6 +15,8 @@ These dependencies apply to the local machine and remote machines.
 * GNU Parallel (`--sshlogin` requires that
   the remote machine(s) also have Parallel installed)
 
+* rsync (the GNU Parallel args `--transfer` and `--return` need this)
+
 * FFmpeg
 
 
