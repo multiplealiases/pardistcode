@@ -40,6 +40,7 @@ Options (defaults in [])
 -S, --sshlogin        --sshlogin arg to pass to GNU Parallel (required)
 -f, --ffmpeg-options  transcode video with these options (required)
 -a, --audio-options   transcode audio with these options [-c:a copy]
+-l, --segment-length  split input video into segments of this length [30]
 ```
 
 ## Considerations
@@ -47,6 +48,18 @@ Options (defaults in [])
 * x264 (`-c:v libx264`), x265 (`-c:v libx265`) and SVT-AV1 (`-c:v libsvtav1`)
   are very good at using every available core;
   start every `--sshlogin` entry with `1/` to only use 1 job on each machine.
+  Whatever you do, always specify the job count,
+  or it will end up running the remote computers'
+  core count of jobs at once,
+  which will probably cause an out-of-memory condition,
+  in addition to the extreme lag.
+
+* ...but your network might not be very good,
+  which can cause noticable 'dead air' between jobs
+  for faster encodes.
+  To mitigate this, increase the number of jobs to 2 (`2/`)
+  to make sure your remote computers always have something to do,
+  or pass a higher `--segment-length` than 30 seconds.
 
 * You should probably read `man parallel` for further info,
   (try searching for `jobs to remote computers`
@@ -55,10 +68,9 @@ Options (defaults in [])
 
 * Your local machine should be able to SSH into your remote machines unattended.
 
-* Segments are hardcoded to be about 30 seconds long (respecting keyframes);
+* Segments default to being about 30 seconds long (respecting keyframes);
   this seems to provide a reasonable tradeoff between
   parallelism and encoding efficiency.
-  I could be convinced to make this an option.
 
 * Temporary files are stored in /tmp.
   To be safe, ensure that your /tmp is

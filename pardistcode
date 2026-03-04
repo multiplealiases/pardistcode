@@ -70,6 +70,7 @@ Options (defaults in [])
 -S, --sshlogin        --sshlogin arg to pass to GNU Parallel (required)
 -f, --ffmpeg-options  transcode video with these options (required)
 -a, --audio-options   transcode audio with these options [-c:a copy]
+-l, --segment-length  split input video into segments of this length [30]
 EOF
 }
 
@@ -106,6 +107,10 @@ do
         outname="$2"
         shift 2
         ;;
+    -l | --segment-length)
+        segment_length="$2"
+        shift 2
+        ;;
     *)
         die "Arg(s) not recognized:\n%s\n" "$*"
         exit 1
@@ -134,6 +139,7 @@ echo "$options" > /dev/null
 
 default_audio_options="-c:a copy"
 audio_options="${audio_options:-$default_audio_options}"
+segment_length="${segment_length:-30}"
 
 infile="$(realpath "$infile")"
 inbase="$(basename "$infile")"
@@ -146,7 +152,7 @@ pushd "$cleanup_dir"
 
 # dropping the audio track here because splitting it up causes
 # distortion/weirdness on track boundaries
-ffmpeg -i "$infile" -map 0:v -f segment -segment_list_type ffconcat -segment_list "$origlist" -segment_time 30 -c:v copy orig-%d.mkv
+ffmpeg -i "$infile" -map 0:v -f segment -segment_list_type ffconcat -segment_list "$origlist" -segment_time "$segment_length" -c:v copy orig-%d.mkv
 
 finalcount=$(grep -Eo '[0-9]+' "$origlist" | tail -n1)
 
