@@ -66,7 +66,7 @@ pardistcode --input input.mkv \\
 Options (defaults in [])
 -h, --help            this help
 -i, --input           input video file (required)
--o, --output          output video file without file extension [based on input]
+-o, --output          output video filepath (without file extension) [based on input]
 -S, --sshlogin        --sshlogin arg to pass to GNU Parallel (required)
 -f, --ffmpeg-options  transcode video with these options (required)
 -a, --audio-options   transcode audio with these options [-c:a copy]
@@ -141,38 +141,38 @@ default_audio_options="-c:a copy"
 audio_options="${audio_options:-$default_audio_options}"
 segment_length="${segment_length:-30}"
 
-infile="$(realpath "$infile")"
 inbase="$(basename "$infile")"
 inbasenoext="${inbase%.*}"
-currentdir="$(pwd)"
 default_outname="$inbasenoext"-pdc
 outname="${outname:-$default_outname}"
 
-pushd "$cleanup_dir"
-
 # dropping the audio track here because splitting it up causes
 # distortion/weirdness on track boundaries
-ffmpeg -i "$infile" -map 0:v -f segment -segment_list_type ffconcat -segment_list "$origlist" -segment_time "$segment_length" -c:v copy orig-%d.mkv
+ffmpeg -i "$infile" -map 0:v -f segment -segment_list_type ffconcat -segment_list "$origlist" -segment_time "$segment_length" -c:v copy "$cleanup_dir"/orig-%d.mkv
 
 finalcount=$(grep -Eo '[0-9]+' "$origlist" | tail -n1)
 
 sed 's/orig/tc/g' "$origlist" > "$tclist"
 
+pushd "$cleanup_dir"
+
 parallel --sshlogin "$sshlogin" --transferfile orig-{}.mkv --cleanup --return tc-{}.mkv \
 ffmpeg -i orig-{}.mkv $options tc-{}.mkv -y \
 :::: <(seq 0 "$finalcount")
+
+popd
 
 # transcode the audio track here instead
 #
 # it is not possible to mux mov_text in MKV,
 # so retry with a re-enc to ASS if it errors out.
-if ! ffmpeg -f concat -i "$tclist" -i "$infile" \
+if ! ffmpeg -safe false -f concat -i "$tclist" -i "$infile" \
      -map 0:v -map 1:a? -map 1:s? -map 1:d? \
      $audio_options -c:v copy -c:s copy -c:d copy \
-     -y "$currentdir"/"$outname".mkv
+     -y "$outname".mkv
 then
-    ffmpeg -f concat -i "$tclist" -i "$infile" \
+    ffmpeg -safe false -f concat -i "$tclist" -i "$infile" \
     -map 0:v -map 1:a? -map 1:s? -map 1:d? \
     $audio_options -c:v copy -c:s ass -c:d copy \
-    -y "$currentdir"/"$outname".mkv
+    -y "$outname".mkv
 fi
