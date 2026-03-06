@@ -163,4 +163,16 @@ ffmpeg -i orig-{}.mkv $options tc-{}.mkv -y \
 :::: <(seq 0 "$finalcount")
 
 # transcode the audio track here instead
-ffmpeg -f concat -i "$tclist" -i "$infile" -map 0:v -map 1:a? -map 1:s? -map 1:d? $audio_options -c:v copy -c:s copy -c:d copy -y "$currentdir"/"$outname".mkv
+#
+# it is not possible to mux mov_text in MKV,
+# so retry with a re-enc to ASS if it errors out.
+if ! ffmpeg -f concat -i "$tclist" -i "$infile" \
+     -map 0:v -map 1:a? -map 1:s? -map 1:d? \
+     $audio_options -c:v copy -c:s copy -c:d copy \
+     -y "$currentdir"/"$outname".mkv
+then
+    ffmpeg -f concat -i "$tclist" -i "$infile" \
+    -map 0:v -map 1:a? -map 1:s? -map 1:d? \
+    $audio_options -c:v copy -c:s ass -c:d copy \
+    -y "$currentdir"/"$outname".mkv
+fi
