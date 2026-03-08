@@ -156,7 +156,7 @@ sed 's/orig/tc/g' "$origlist" > "$tclist"
 
 pushd "$cleanup_dir"
 
-parallel --sshlogin "$sshlogin" --transferfile orig-{}.mkv --cleanup --return tc-{}.mkv \
+parallel --retry-failed --progress --sshlogin "$sshlogin" --transferfile orig-{}.mkv --cleanup --return tc-{}.mkv \
 ffmpeg -i orig-{}.mkv $options tc-{}.mkv -y \
 :::: <(seq 0 "$finalcount")
 
