@@ -169,18 +169,32 @@ parallel --retry-failed --progress --sshlogin "$sshlogin" --transferfile orig-{}
 ffmpeg -i orig-{}.mkv $options tc-{}.mkv -y \
 :::: <(seq 0 "$finalcount")
 
+# don't need the original segments anymore
+rm orig-*.mkv
+
 popd
+
+# sync and playability issues occur when you pass as inputs
+# 0: -f concat -i list
+# 1: -i audio.mkv
+# *and* you transcode input 1 (i.e. not -c:a copy)
+# getting around this by doing input 0 separately, then passing
+# -i video.mkv -i audio.mkv
+ffmpeg -safe false -f concat -i "$tclist" -c:v copy "$cleanup_dir"/tc.mkv
+
+# don't need the transcoded segments anymore, either
+rm "$cleanup_dir"/tc-*.mkv
 
 # transcode the audio track here instead
 #
 # it is not possible to mux mov_text in MKV,
 # so retry with a re-enc to ASS if it errors out.
-if ! ffmpeg -safe false -f concat -i "$tclist" -i "$infile" \
+if ! ffmpeg -i "$cleanup_dir"/tc.mkv -i "$infile" \
      -map 0:v -map 1:a? -map 1:s? -map 1:d? \
      $audio_options -c:v copy -c:s copy -c:d copy \
      -y "$outname".mkv
 then
-    ffmpeg -safe false -f concat -i "$tclist" -i "$infile" \
+    ffmpeg -i "$cleanup_dir"/tc.mkv -i "$infile" \
     -map 0:v -map 1:a? -map 1:s? -map 1:d? \
     $audio_options -c:v copy -c:s ass -c:d copy \
     -y "$outname".mkv
