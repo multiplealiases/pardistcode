@@ -71,6 +71,7 @@ Options (defaults in [])
 -f, --ffmpeg-options  transcode video with these options (required)
 -a, --audio-options   transcode audio with these options [-c:a copy]
 -l, --segment-length  split input video into segments of this length [30]
+                      'auto' to calculate \$video_length / \$hostcount
 EOF
 }
 
@@ -136,6 +137,14 @@ tclist="$(autocleaning_mktemp)"
 echo "$infile" > /dev/null
 echo "$sshlogin" > /dev/null
 echo "$options" > /dev/null
+
+if [[ $segment_length == auto ]]
+then
+    hostcount="$(echo "$sshlogin" | tr -cd ',' | wc -c)"
+    hostcount="$((hostcount + 1))"
+    video_length="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$infile")"
+    segment_length=$(echo "$video_length" / "$hostcount" | bc)
+fi
 
 default_audio_options="-c:a copy"
 audio_options="${audio_options:-$default_audio_options}"
