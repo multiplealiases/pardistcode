@@ -106,6 +106,6 @@ There are 2 ways to mitigate this:
 
 * Broken embedded subtitles can cause wonky behavior
   (e.g. no audio, long file-open times, long seek times).
-  In this case, it might be best to strip out the subtitles.
-  Try `ffmpeg -i in.mkv -map 0 -c:a copy -c:v copy -sn -dn out.mkv`.
-
+  In this case, it might be best to retry the last step
+  in the script without the subtitle track, e.g.
+  `ffmpeg -i pdc.mkv -i orig.mkv -map 0:v -map 1:a -c:a libopus -b:v 256k -c:v copy -sn -dn out.mkv`
