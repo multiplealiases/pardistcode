@@ -104,3 +104,8 @@ There are 2 ways to mitigate this:
   `ffmpeg -i in.mkv -map 0 -c:a copy -c:v copy -c:s copy -c:d copy -movflags faststart out.mp4`
   afterwards.
 
+* Broken embedded subtitles can cause wonky behavior
+  (e.g. no audio, long file-open times, long seek times).
+  In this case, it might be best to strip out the subtitles.
+  Try `ffmpeg -i in.mkv -map 0 -c:a copy -c:v copy -sn -dn out.mkv`.
+
